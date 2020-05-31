@@ -3,28 +3,37 @@ var app = express();
 var uuid = require('node-uuid');
 
 var pg = require('pg');
-var conString = process.env.DB; // "postgres://username:password@localhost/database";
+const conString = {
+    user: process.env.DBUSER,
+    database: process.env.DB,
+    password: process.env.DBPASS,
+    host: process.env.DBHOST,
+    port: process.env.DBPORT                
+};
 
 // Routes
 app.get('/api/status', function(req, res) {
-  pg.connect(conString, function(err, client, done) {
-    if(err) {
-      return res.status(500).send('error fetching client from pool');
+//'SELECT now() as time', [], function(err, result
+  
+  const Pool = require('pg').Pool
+  const pool = new Pool(conString)
+  // connection using created pool
+  pool.connect((err, client, release) => {
+    if (err) {
+      return console.error('Error acquiring client', err.stack)
     }
-    client.query('SELECT now() as time', [], function(err, result) {
-      //call `done()` to release the client back to the pool
-      done();
-
-      if(err) {
-        return res.status(500).send('error running query');
-      }
-
-      return res.json({
-        request_uuid: uuid.v4(),
-        time: result.rows[0].time
-      });
-    });
+    client.query('SELECT now() as time', (err, result) => {
+      release()
+    if (err) {
+      console.log(err);
+      return console.error('Error executing query', err.stack)
+    }
+    res.status(200).send(result.rows);
   });
+});
+
+  // pool shutdown
+  pool.end()
 });
 
 // catch 404 and forward to error handler
